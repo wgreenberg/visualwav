@@ -1,0 +1,12 @@
+[package]
+name = "rs-imgwav"
+version = "0.1.0"
+authors = ["Will Greenberg <willg@eff.org>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "*"
+console_error_panic_hook = "0.1.6"
