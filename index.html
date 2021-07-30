@@ -4,7 +4,6 @@
   </head>
   <body>
     <!-- Note the usage of `type=module` here as this is an ES6 module -->
-    <script src='audioBufferToWav.js'></script>
     <script type="module">
       import init, { Image, init_panic_hook, image_to_audio, Audio } from './pkg/rs_imgwav.js';
 
@@ -21,11 +20,7 @@
         let imgData = canvasCtx.getImageData(0, 0, source_image.width, source_image.height);
         let sampleRate = 44100;
         let audio = image_to_audio(imgData.data, imgData.width, imgData.height, sampleRate);
-        let samples = audio.samples();
-        let audioCtx = new AudioContext();
-        let buffer = audioCtx.createBuffer(1, samples.length, audio.sample_rate);
-        buffer.copyToChannel(samples, 0, 0);
-        let wavBlob = new Blob([audioBufferToWav(buffer)], {type: 'audio/wav'});
+        let wavBlob = new Blob([audio.to_wav()], {type: 'audio/wav'});
         let blobUrl = URL.createObjectURL(wavBlob);
         let link = document.createElement('a');
         link.href = blobUrl;

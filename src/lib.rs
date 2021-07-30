@@ -1,5 +1,7 @@
 use wasm_bindgen::prelude::*;
+use hound::{WavSpec, SampleFormat};
 use rustfft::{FftPlanner, num_complex::Complex};
+use std::io::Cursor;
 
 const AUDACITY_MAX_FREQ: u32 = 8000;
 
@@ -112,9 +114,27 @@ impl Audio {
         self.samples.clone()
     }
 
-    pub fn normalize(&mut self) {
-        let max = *self.samples.iter().max_by(|x, y| x.abs().partial_cmp(&y.abs()).unwrap()).unwrap();
+    fn normalize(&mut self) {
+        let max = *self.samples.iter()
+            .max_by(|x, y| x.abs().partial_cmp(&y.abs()).unwrap())
+            .unwrap();
         self.samples.iter_mut().for_each(|s| *s = *s/max);
+    }
+
+    pub fn to_wav(&self) -> Vec<u8> {
+        let spec = WavSpec {
+            channels: 1,
+            sample_rate: self.sample_rate as u32,
+            bits_per_sample: 16,
+            sample_format: SampleFormat::Int,
+        };
+        let mut buf = Cursor::new(Vec::new());
+        let mut writer = hound::WavWriter::new(&mut buf, spec).unwrap();
+        for s in &self.samples {
+            writer.write_sample((s * i16::MAX as f32) as i16).unwrap();
+        }
+        writer.finalize().unwrap();
+        buf.into_inner()
     }
 }
 
