@@ -1,0 +1,13 @@
+{
+  "name": "visualwav",
+  "collaborators": [
+    "Will Greenberg <willg@eff.org>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "visualwav_bg.wasm",
+    "visualwav.js"
+  ],
+  "module": "visualwav.js",
+  "sideEffects": false
+}

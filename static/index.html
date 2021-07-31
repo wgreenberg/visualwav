@@ -5,7 +5,7 @@
   <body>
     <!-- Note the usage of `type=module` here as this is an ES6 module -->
     <script type="module">
-      import init, { Image, init_panic_hook, image_to_audio, Audio } from './pkg/rs_imgwav.js';
+      import init, { Image, init_panic_hook, Audio } from './pkg/visualwav.js';
 
       function generateWav(imgData) {
         setStatus('Processing...');
@@ -13,7 +13,8 @@
         let contrast = document.getElementById('contrast').value / 100;
         setTimeout(() => {
             let sampleRate = 44100;
-            let audio = image_to_audio(imgData.data, imgData.width, imgData.height, sampleRate);
+            let img = Image.new(imgData.data, imgData.width, imgData.height);
+            let audio = img.to_audio(sampleRate);
             let wavBlob = new Blob([audio.to_wav(contrast)], {type: 'audio/wav'});
             setStatus('Done');
             setDownloadLink(URL.createObjectURL(wavBlob), wavBlob.size);
@@ -31,23 +32,24 @@
 
       function setDownloadLink(url, size) {
         let link = document.getElementById('downloadLink');
-        let sizeText = (size / 1000) + 'MB';
         link.href = url;
         link.id = 'downloadLink';
         link.download = 'audio.wav';
-        link.innerHTML = 'download';
+        link.innerHTML = `download (${(size/1e6).toPrecision(2)}MB)`;
       }
 
       function showImageSteps(ctx, imgData) {
-        let img = Image.new(imgData.data, imgData.width, imgData.height);
-        drawImageData(img, 'step1');
-        img.pad_top(img.height); // padding not to scale
-        img.invert();
-        drawImageData(img, 'step2');
-        img.rotate90();
-        drawImageData(img, 'step3');
-        img.reflect_about_y_axis();
-        drawImageData(img, 'step4');
+        setTimeout(() => {
+          let img = Image.new(imgData.data, imgData.width, imgData.height);
+          drawImageData(img, 'step1');
+          img.pad_top(img.height); // padding not to scale
+          img.invert();
+          drawImageData(img, 'step2');
+          img.rotate90();
+          drawImageData(img, 'step3');
+          img.reflect_about_y_axis();
+          drawImageData(img, 'step4');
+        }, 0);
       }
 
       function drawImageData(img, canvasId) {

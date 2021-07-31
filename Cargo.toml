@@ -1,5 +1,5 @@
 [package]
-name = "rs-imgwav"
+name = "visualwav"
 version = "0.1.0"
 authors = ["Will Greenberg <willg@eff.org>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-wasm-bindgen = "*"
+wasm-bindgen = "0.2.74"
 console_error_panic_hook = "0.1.6"
-rustfft = "*"
-hound = "*"
+rustfft = "6.0.1"
+hound = "3.4.0"

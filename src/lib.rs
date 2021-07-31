@@ -100,6 +100,48 @@ impl Image {
         }
         rows
     }
+
+    #[wasm_bindgen]
+    pub fn to_audio(&mut self, sample_rate: usize) -> Audio {
+        // zero-pad the top of the image so it "fits" into Audacity's 8kHz default spectrogram view
+        let scaling_factor = sample_rate as f32 / (2.0 * AUDACITY_MAX_FREQ as f32);
+        let padded_height = (self.height as f32 * scaling_factor) as usize;
+        self.pad_top(padded_height - self.height);
+
+        // invert so that darker pixels result in high values
+        self.invert();
+
+        // rotate 90 degrees clockwise, since our IFFT wants to operate on image cols 
+        self.rotate90();
+
+        // add a symmetric set of "frequencies" to the end to create something that results in a real-
+        // valued waveform
+        self.reflect_about_y_axis();
+
+        let mut planner = FftPlanner::new();
+        let fft = planner.plan_fft_forward(2 * padded_height);
+        let mut audio = Audio {
+            samples: Vec::new(),
+            sample_rate,
+        };
+
+        // for each row of data (i.e. column of the image), perform an FFT, and concat the resulting
+        // waveform to our result
+        for mut row in self.to_complex_rows() {
+            fft.process(&mut row);
+            // we only need the real components (complex should be zero)
+            audio.samples.extend(row.iter().map(|c| c.re));
+        }
+
+        // remove the DC bias
+        let avg = audio.samples.iter().sum::<f32>() / audio.samples.len() as f32;
+        audio.samples.iter_mut().for_each(|s| *s = *s - avg);
+
+        // normalize to [-1, 1]
+        audio.normalize();
+
+        audio
+    }
 }
 
 #[wasm_bindgen]
@@ -136,50 +178,6 @@ impl Audio {
         writer.finalize().unwrap();
         buf.into_inner()
     }
-}
-
-#[wasm_bindgen]
-pub fn image_to_audio(data: Vec<u8>, width: usize, height: usize, sample_rate: usize) -> Audio {
-    let mut img = Image::new(data, width, height);
-
-    // zero-pad the top of the image so it "fits" into Audacity's 8kHz default spectrogram view
-    let scaling_factor = sample_rate as f32 / (2.0 * AUDACITY_MAX_FREQ as f32);
-    let padded_height = (height as f32 * scaling_factor) as usize;
-    img.pad_top(padded_height - height);
-
-    // invert so that darker pixels result in high values
-    img.invert();
-
-    // rotate 90 degrees clockwise, since our IFFT wants to operate on image cols 
-    img.rotate90();
-
-    // add a symmetric set of "frequencies" to the end to create something that results in a real-
-    // valued waveform
-    img.reflect_about_y_axis();
-
-    let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(2 * padded_height);
-    let mut audio = Audio {
-        samples: Vec::new(),
-        sample_rate,
-    };
-
-    // for each row of data (i.e. column of the image), perform an FFT, and concat the resulting
-    // waveform to our result
-    for mut row in img.to_complex_rows() {
-        fft.process(&mut row);
-        // we only need the real components (complex should be zero)
-        audio.samples.extend(row.iter().map(|c| c.re));
-    }
-
-    // remove the DC bias
-    let avg = audio.samples.iter().sum::<f32>() / audio.samples.len() as f32;
-    audio.samples.iter_mut().for_each(|s| *s = *s - avg);
-
-    // normalize to [-1, 1]
-    audio.normalize();
-
-    audio
 }
 
 #[wasm_bindgen]
