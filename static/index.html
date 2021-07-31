@@ -1,0 +1,138 @@
+<html>
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+  </head>
+  <body>
+    <!-- Note the usage of `type=module` here as this is an ES6 module -->
+    <script type="module">
+      import init, { Image, init_panic_hook, image_to_audio, Audio } from './pkg/rs_imgwav.js';
+
+      function generateWav(imgData) {
+        setStatus('Processing...');
+        clearDownloadLink();
+        let contrast = document.getElementById('contrast').value / 100;
+        setTimeout(() => {
+            let sampleRate = 44100;
+            let audio = image_to_audio(imgData.data, imgData.width, imgData.height, sampleRate);
+            let wavBlob = new Blob([audio.to_wav(contrast)], {type: 'audio/wav'});
+            setStatus('Done');
+            setDownloadLink(URL.createObjectURL(wavBlob), wavBlob.size);
+        }, 0);
+      }
+
+      function setStatus(text) {
+        document.getElementById('status').innerHTML = text;;
+      }
+
+      function clearDownloadLink() {
+        let link = document.getElementById('downloadLink');
+        link.innerHTML = '';
+      }
+
+      function setDownloadLink(url, size) {
+        let link = document.getElementById('downloadLink');
+        let sizeText = (size / 1000) + 'MB';
+        link.href = url;
+        link.id = 'downloadLink';
+        link.download = 'audio.wav';
+        link.innerHTML = 'download';
+      }
+
+      function showImageSteps(ctx, imgData) {
+        let img = Image.new(imgData.data, imgData.width, imgData.height);
+        drawImageData(img, 'step1');
+        img.pad_top(img.height); // padding not to scale
+        img.invert();
+        drawImageData(img, 'step2');
+        img.rotate90();
+        drawImageData(img, 'step3');
+        img.reflect_about_y_axis();
+        drawImageData(img, 'step4');
+      }
+
+      function drawImageData(img, canvasId) {
+        let clamped = new Uint8ClampedArray(img.rgba_data());
+        let imgData = new ImageData(clamped, img.width, img.height);
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        canvas.height = imgData.height;
+        canvas.width = imgData.width;
+        ctx.putImageData(imgData, 0, 0);
+      }
+
+      function handleImageUpload(e) {
+        let reader = new FileReader();
+        reader.onload = function(event){
+            let source_image = document.getElementById('source_image');
+            source_image.src = event.target.result;
+        }
+        reader.readAsDataURL(e.target.files[0]); 
+      }
+
+      function convertImage() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        let source_image = document.getElementById('source_image');
+        canvas.height = source_image.height;
+        canvas.width = source_image.width;
+        ctx.drawImage(source_image, 0, 0);
+        let imgData = ctx.getImageData(0, 0, source_image.width, source_image.height);
+        generateWav(imgData);
+        showImageSteps(ctx, imgData);
+      }
+
+      function updateContrastDisplay(e) {
+        document.getElementById('contrastValue').innerHTML = e.target.value + "%";
+      }
+
+      async function run() {
+        await init();
+        init_panic_hook();
+
+        document.getElementById('convert')
+            .addEventListener('click', convertImage, false);
+        document.getElementById('contrast')
+            .addEventListener('input', updateContrastDisplay, false);
+        document.getElementById('imageLoader')
+            .addEventListener('change', handleImageUpload, false);
+        convertImage();
+      }
+
+      run();
+    </script>
+    <img id="source_image" src="avocat.png">
+    <div>
+        <input type="file" id="imageLoader" name="imageLoader"/>
+        <button id="convert">Convert</button>
+        <div>
+            <p>Contrast (i.e. volume, be careful!)</p>
+            <input type="range" min="1" max="100" value="25" class="slider" id="contrast">
+            <p id="contrastValue">25%</p>
+        </div>
+    </div>
+    <div>
+        <table>
+            <tr>
+                <td><p>Step 1: Convert to grayscale</p></td>
+                <td><canvas id="step1"></canvas></td>
+            </tr>
+            <tr>
+                <td><p>Step 2: Invert colors (so dark colors become high "frequency" values) and add padding to top (not to scale)</p></td>
+                <td><canvas id="step2"></canvas></td>
+            </tr>
+            <tr>
+                <td><p>Step 3: Rotate clockwise, so each image column becomes a row of frequency data for that time step</p></td>
+                <td><canvas id="step3"></canvas></td>
+            </tr>
+            <tr>
+                <td><p>Step 4: Mirror "frequencies" along Y axis to produce a real-valued audio signal from FFT</p></td>
+                <td><canvas id="step4"></canvas></td>
+            </tr>
+            <tr>
+                <td>Step 5: Perform inverse FFT on row data, concat results into wav file</td>
+                <td><p id="status"></p><a id='downloadLink'></a></td>
+            </tr>
+        </table>
+    </div>
+  </body>
+</html>

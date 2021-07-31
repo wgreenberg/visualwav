@@ -121,7 +121,7 @@ impl Audio {
         self.samples.iter_mut().for_each(|s| *s = *s/max);
     }
 
-    pub fn to_wav(&self) -> Vec<u8> {
+    pub fn to_wav(&self, level: f32) -> Vec<u8> {
         let spec = WavSpec {
             channels: 1,
             sample_rate: self.sample_rate as u32,
@@ -131,7 +131,7 @@ impl Audio {
         let mut buf = Cursor::new(Vec::new());
         let mut writer = hound::WavWriter::new(&mut buf, spec).unwrap();
         for s in &self.samples {
-            writer.write_sample((s * i16::MAX as f32) as i16).unwrap();
+            writer.write_sample((level * s * i16::MAX as f32) as i16).unwrap();
         }
         writer.finalize().unwrap();
         buf.into_inner()
@@ -142,13 +142,13 @@ impl Audio {
 pub fn image_to_audio(data: Vec<u8>, width: usize, height: usize, sample_rate: usize) -> Audio {
     let mut img = Image::new(data, width, height);
 
-    // invert so that darker pixels result in high values
-    img.invert();
-
     // zero-pad the top of the image so it "fits" into Audacity's 8kHz default spectrogram view
     let scaling_factor = sample_rate as f32 / (2.0 * AUDACITY_MAX_FREQ as f32);
     let padded_height = (height as f32 * scaling_factor) as usize;
     img.pad_top(padded_height - height);
+
+    // invert so that darker pixels result in high values
+    img.invert();
 
     // rotate 90 degrees clockwise, since our IFFT wants to operate on image cols 
     img.rotate90();
